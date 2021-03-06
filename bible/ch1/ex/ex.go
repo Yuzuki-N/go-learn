@@ -17,8 +17,7 @@ func main() {
 	// ex1.3
 	start := time.Now()
 	fmt.Println(strings.Join(os.Args[1:], " "))
-	end := time.Now()
-	fmt.Println("strings.Join cost time: ", end.Sub(start))
+	fmt.Println("strings.Join cost time: ", time.Since(start).Seconds())
 
 	s, sep := "", ""
 	start = time.Now()
@@ -26,6 +25,5 @@ func main() {
 		s += sep + os.Args[i]
 		sep = " "
 	}
-	end = time.Now()
-	fmt.Println("for cost time: ", end.Sub(start))
+	fmt.Println("for cost time: ", time.Since(start).Seconds())
 }
