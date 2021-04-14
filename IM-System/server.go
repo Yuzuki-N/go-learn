@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -11,7 +12,7 @@ type Server struct {
 	Port int
 
 	OnlineMap map[string]*User
-	maplock sync.RWMutex
+	mapLock   sync.RWMutex
 
 	Message chan string
 }
@@ -27,15 +28,15 @@ func NewServer(ip string, port int) *Server {
 }
 
 //监听广播消息,有消息就发给全部的在线user
-func(server *Server) ListenMessage() {
+func(server *Server) ListenMessager() {
 	for {
 		msg := <- server.Message
 
-		server.maplock.Lock()
+		server.mapLock.Lock()
 		for _, cli := range server.OnlineMap {
 			cli.C <- msg
 		}
-		server.maplock.Unlock()
+		server.mapLock.Unlock()
 	}
 }
 
@@ -49,16 +50,33 @@ func(server *Server) Broadcast(user *User, msg string) {
 func (server *Server) Handler(conn net.Conn) {
 	user := NewUser(conn)
 
-	server.maplock.Lock()
+	server.mapLock.Lock()
 	server.OnlineMap[user.Name] = user
-	server.maplock.Unlock()
+	server.mapLock.Unlock()
 
 
 	server.Broadcast(user, "已上线")
 
-	select {
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := conn.Read(buf)
+			if n == 0 {
+				server.Broadcast(user, "下线")
+				return
+			}
 
-	}
+			if err != nil && err != io.EOF {
+				fmt.Println("Conn Read err: ", err)
+				return
+			}
+			//提取用户的消息，去除\n
+			msg := string(buf[:n-1])
+			server.Broadcast(user, msg)
+		}
+	}()
+
+	select {}
 }
 
 func (server *Server) Start() {
@@ -69,7 +87,7 @@ func (server *Server) Start() {
 	}
 	defer listener.Close()
 
-	go server.ListenMessage()
+	go server.ListenMessager()
 
 	for {
 		conn, err := listener.Accept()
